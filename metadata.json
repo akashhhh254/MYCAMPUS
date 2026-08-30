@@ -1,0 +1,6 @@
+{
+  "name": "MyCampus",
+  "description": "Complete modern college super application for Principal, Teachers, and Students featuring Attendance, Timetable, Study Materials, Assignments, StudyMate AI, and CampusConnect.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
