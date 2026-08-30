@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 @Database(
     entities = [
         UserEntity::class,
+        DepartmentEntity::class,
+        HodEntity::class,
         StudentEntity::class,
         TeacherEntity::class,
         TeacherAssignmentEntity::class,
@@ -33,7 +35,7 @@ import kotlinx.coroutines.launch
         StudyGroupEntity::class,
         ConnectionEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -81,7 +83,7 @@ abstract class AppDatabase : RoomDatabase() {
                     scope.launch(Dispatchers.IO) {
                         try {
                             val dao = database.campusDao()
-                            val existing = dao.getUserById("user_principal")
+                            val existing = dao.getUserById("user_hod_comp") ?: dao.getUserById("user_principal")
                             if (existing == null) {
                                 DemoDataSeeder.seedDatabase(dao)
                             }

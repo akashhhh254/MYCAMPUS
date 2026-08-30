@@ -29,6 +29,12 @@ interface CampusDao {
     @Query("SELECT * FROM users WHERE role = 'teacher'")
     fun getAllTeacherUsers(): Flow<List<UserEntity>>
 
+    @Query("SELECT * FROM users WHERE role = 'hod'")
+    fun getAllHodUsers(): Flow<List<UserEntity>>
+
+    @Query("SELECT * FROM users WHERE departmentId = :departmentId")
+    fun getUsersByDepartment(departmentId: String): Flow<List<UserEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
 
@@ -37,6 +43,44 @@ interface CampusDao {
 
     @Query("DELETE FROM users WHERE id = :userId")
     suspend fun deleteUser(userId: String)
+
+    // --- Departments ---
+    @Query("SELECT * FROM departments")
+    fun getAllDepartments(): Flow<List<DepartmentEntity>>
+
+    @Query("SELECT * FROM departments")
+    suspend fun getAllDepartmentsDirect(): List<DepartmentEntity>
+
+    @Query("SELECT * FROM departments WHERE id = :id LIMIT 1")
+    suspend fun getDepartmentById(id: String): DepartmentEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDepartment(department: DepartmentEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDepartments(departments: List<DepartmentEntity>)
+
+    // --- HODs ---
+    @Query("SELECT * FROM hods WHERE userId = :userId LIMIT 1")
+    suspend fun getHodByUserId(userId: String): HodEntity?
+
+    @Query("SELECT * FROM hods WHERE userId = :userId LIMIT 1")
+    fun getHodFlowByUserId(userId: String): Flow<HodEntity?>
+
+    @Query("SELECT * FROM hods WHERE departmentId = :deptId LIMIT 1")
+    suspend fun getHodByDepartment(deptId: String): HodEntity?
+
+    @Query("SELECT * FROM hods")
+    fun getAllHods(): Flow<List<HodEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHod(hod: HodEntity)
+
+    @Update
+    suspend fun updateHod(hod: HodEntity)
+
+    @Query("DELETE FROM hods WHERE id = :hodId")
+    suspend fun deleteHod(hodId: String)
 
     // --- Students ---
     @Query("SELECT * FROM students WHERE userId = :userId LIMIT 1")
@@ -47,6 +91,9 @@ interface CampusDao {
 
     @Query("SELECT * FROM students")
     fun getAllStudents(): Flow<List<StudentEntity>>
+
+    @Query("SELECT * FROM students WHERE department LIKE '%' || :deptKeyword || '%'")
+    fun getStudentsByDepartmentKeyword(deptKeyword: String): Flow<List<StudentEntity>>
 
     @Query("SELECT * FROM students WHERE classGroup = :classGroup AND section = :section AND isDeactivated = 0 ORDER BY rollNumber ASC")
     fun getStudentsByClassAndSection(classGroup: String, section: String): Flow<List<StudentEntity>>

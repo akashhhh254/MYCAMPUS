@@ -59,11 +59,11 @@ fun SplashScreen(
             delay(1000)
         }
 
-        // Automatic authentication check
-        val role = authSession?.role ?: currentUser?.role
+        // Automatic authentication check based on persisted verified session
+        val role = authSession?.role
         if (!role.isNullOrBlank()) {
             val destination = when (role.lowercase().trim()) {
-                "principal", "admin" -> "principal_home"
+                "hod", "principal", "admin" -> "principal_home"
                 "teacher", "faculty" -> "teacher_home"
                 else -> "student_home"
             }

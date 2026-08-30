@@ -23,11 +23,6 @@ class CampusRepository(
             if (principal == null) {
                 com.example.data.local.DemoDataSeeder.seedDatabase(dao)
             }
-            // Auto login to default Student (Akash Thakare) if not logged in for instant preview
-            if (_currentUser.value == null) {
-                val defaultUser = dao.getUserById("user_stu_1")
-                _currentUser.value = defaultUser
-            }
         }
     }
 
@@ -463,4 +458,20 @@ class CampusRepository(
             dao.insertConnection(ConnectionEntity(id = UUID.randomUUID().toString(), followerId = followerId, followingId = targetUserId))
         }
     }
+
+    // --- Departments & HOD Support ---
+    fun getAllDepartments(): Flow<List<DepartmentEntity>> = dao.getAllDepartments()
+    suspend fun getAllDepartmentsDirect(): List<DepartmentEntity> = dao.getAllDepartmentsDirect()
+    suspend fun getDepartmentById(id: String): DepartmentEntity? = dao.getDepartmentById(id)
+    suspend fun insertDepartment(department: DepartmentEntity) = dao.insertDepartment(department)
+
+    fun getAllHodUsers(): Flow<List<UserEntity>> = dao.getAllHodUsers()
+    fun getAllHods(): Flow<List<HodEntity>> = dao.getAllHods()
+    suspend fun getHodByUserId(userId: String): HodEntity? = dao.getHodByUserId(userId)
+    fun getHodFlowByUserId(userId: String): Flow<HodEntity?> = dao.getHodFlowByUserId(userId)
+    suspend fun getHodByDepartment(deptId: String): HodEntity? = dao.getHodByDepartment(deptId)
+    suspend fun insertHod(hod: HodEntity) = dao.insertHod(hod)
+
+    fun getUsersByDepartment(deptId: String): Flow<List<UserEntity>> = dao.getUsersByDepartment(deptId)
+    fun getStudentsByDepartmentKeyword(deptKeyword: String): Flow<List<StudentEntity>> = dao.getStudentsByDepartmentKeyword(deptKeyword)
 }

@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.ui.CampusViewModel
+import com.example.ui.components.SecureRoute
 import com.example.ui.screens.auth.LoginScreen
 import com.example.ui.screens.principal.PrincipalHomeScreen
 import com.example.ui.screens.splash.SplashScreen
@@ -66,7 +67,7 @@ fun CampusApp(viewModel: CampusViewModel) {
                 viewModel = viewModel,
                 onLoginSuccess = { role ->
                     val dest = when (role.lowercase().trim()) {
-                        "principal", "admin" -> "principal_home"
+                        "hod", "principal", "admin" -> "principal_home"
                         "teacher", "faculty" -> "teacher_home"
                         else -> "student_home"
                     }
@@ -78,36 +79,108 @@ fun CampusApp(viewModel: CampusViewModel) {
         }
 
         composable("principal_home") {
-            PrincipalHomeScreen(
+            SecureRoute(
                 viewModel = viewModel,
+                allowedRoles = listOf("hod", "principal", "admin"),
                 onLogout = {
-                    navController.navigate("login") {
+                    viewModel.signOut {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
+                onRedirectToRole = { role ->
+                    val dest = when (role.lowercase().trim()) {
+                        "hod", "principal", "admin" -> "principal_home"
+                        "teacher", "faculty" -> "teacher_home"
+                        else -> "student_home"
+                    }
+                    navController.navigate(dest) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
-            )
+            ) { _ ->
+                PrincipalHomeScreen(
+                    viewModel = viewModel,
+                    onLogout = {
+                        viewModel.signOut {
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
         }
 
         composable("teacher_home") {
-            TeacherHomeScreen(
+            SecureRoute(
                 viewModel = viewModel,
+                allowedRoles = listOf("teacher", "faculty"),
                 onLogout = {
-                    navController.navigate("login") {
+                    viewModel.signOut {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
+                onRedirectToRole = { role ->
+                    val dest = when (role.lowercase().trim()) {
+                        "hod", "principal", "admin" -> "principal_home"
+                        "teacher", "faculty" -> "teacher_home"
+                        else -> "student_home"
+                    }
+                    navController.navigate(dest) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
-            )
+            ) { _ ->
+                TeacherHomeScreen(
+                    viewModel = viewModel,
+                    onLogout = {
+                        viewModel.signOut {
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
         }
 
         composable("student_home") {
-            StudentHomeScreen(
+            SecureRoute(
                 viewModel = viewModel,
+                allowedRoles = listOf("student"),
                 onLogout = {
-                    navController.navigate("login") {
+                    viewModel.signOut {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
+                onRedirectToRole = { role ->
+                    val dest = when (role.lowercase().trim()) {
+                        "hod", "principal", "admin" -> "principal_home"
+                        "teacher", "faculty" -> "teacher_home"
+                        else -> "student_home"
+                    }
+                    navController.navigate(dest) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
-            )
+            ) { _ ->
+                StudentHomeScreen(
+                    viewModel = viewModel,
+                    onLogout = {
+                        viewModel.signOut {
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
 }

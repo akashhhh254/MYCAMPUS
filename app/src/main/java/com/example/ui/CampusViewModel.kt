@@ -113,6 +113,36 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
     val allStudyGroups: StateFlow<List<StudyGroupEntity>> = repository.getAllStudyGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Departments & HOD State
+    val allDepartments: StateFlow<List<DepartmentEntity>> = repository.getAllDepartments()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allHodUsers: StateFlow<List<UserEntity>> = repository.getAllHodUsers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val currentHodEntity: StateFlow<HodEntity?> = currentUser.flatMapLatest { user ->
+        if (user != null && (user.role == "hod" || user.role == "principal")) {
+            repository.getHodFlowByUserId(user.id)
+        } else flowOf(null)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val hodDepartmentStudents: StateFlow<List<StudentEntity>> = combine(currentHodEntity, allStudents) { hod, students ->
+        if (hod == null) students
+        else students.filter {
+            it.department.contains(hod.departmentName, ignoreCase = true) ||
+            it.department.contains(hod.departmentId, ignoreCase = true) ||
+            hod.departmentName.contains(it.department, ignoreCase = true)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val hodDepartmentTeachers: StateFlow<List<TeacherEntity>> = combine(currentHodEntity, allTeachers) { hod, teachers ->
+        if (hod == null) teachers
+        else teachers.filter {
+            it.department.contains(hod.departmentName, ignoreCase = true) ||
+            hod.departmentName.contains(it.department, ignoreCase = true)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Notifications for current user
     val currentNotifications: StateFlow<List<NotificationEntity>> = currentUser.flatMapLatest { user ->
         if (user != null) repository.getNotificationsForUser(user.id) else flowOf(emptyList())
@@ -269,9 +299,9 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // --- Auth Actions ---
-    fun loginStudent(collegeId: String, pass: String, onResult: (Boolean, String) -> Unit) {
+    fun loginStudent(identifier: String, pass: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
-            val res = authManager.loginStudent(collegeId, pass)
+            val res = authManager.loginStudent(identifier, pass)
             if (res.isSuccess) {
                 val session = res.getOrNull()
                 if (session != null) {
@@ -299,9 +329,9 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun loginPrincipal(identifier: String, pass: String, onResult: (Boolean, String) -> Unit) {
+    fun loginHod(identifier: String, pass: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
-            val res = authManager.loginPrincipal(identifier, pass)
+            val res = authManager.loginHod(identifier, pass)
             if (res.isSuccess) {
                 val session = res.getOrNull()
                 if (session != null) {
@@ -309,9 +339,13 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 onResult(true, "Welcome, ${session?.fullName}!")
             } else {
-                onResult(false, res.exceptionOrNull()?.message ?: "Principal sign-in failed.")
+                onResult(false, res.exceptionOrNull()?.message ?: "HOD sign-in failed.")
             }
         }
+    }
+
+    fun loginPrincipal(identifier: String, pass: String, onResult: (Boolean, String) -> Unit) {
+        loginHod(identifier, pass, onResult)
     }
 
     fun signInWithGoogle(
@@ -320,30 +354,66 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
         serverClientId: String? = null,
         onResult: (Boolean, String, String) -> Unit
     ) {
-        viewModelScope.launch {
-            val res = authManager.signInWithGoogle(context, expectedRole, serverClientId)
-            if (res.isSuccess) {
-                val session = res.getOrNull()!!
-                repository.switchUserDirect(session.uid)
-                onResult(true, session.role, "Welcome, ${session.fullName}!")
-            } else {
-                onResult(false, expectedRole.value, res.exceptionOrNull()?.message ?: "Google Sign-In failed.")
-            }
-        }
+        signInStaffWithGoogle(context, expectedRole, isSignUp = false, serverClientId = serverClientId, onResult = onResult)
     }
 
     fun signInStaffWithGoogle(
         context: android.content.Context,
         expectedRole: com.example.data.auth.CampusRole,
+        isSignUp: Boolean = false,
         serverClientId: String? = null,
+        departmentId: String? = null,
+        departmentName: String? = null,
         onResult: (Boolean, String, String) -> Unit
     ) {
-        signInWithGoogle(context, expectedRole, serverClientId, onResult)
+        viewModelScope.launch {
+            val res = if (isSignUp) {
+                authManager.signUpWithGoogle(
+                    activityContext = context,
+                    expectedRole = expectedRole,
+                    serverClientId = serverClientId,
+                    departmentId = departmentId,
+                    departmentName = departmentName
+                )
+            } else {
+                authManager.signInWithGoogle(
+                    activityContext = context,
+                    expectedRole = expectedRole,
+                    serverClientId = serverClientId
+                )
+            }
+            if (res.isSuccess) {
+                val session = res.getOrNull()!!
+                repository.switchUserDirect(session.uid)
+                onResult(true, session.role, "Welcome, ${session.fullName}!")
+            } else {
+                onResult(false, expectedRole.value, res.exceptionOrNull()?.message ?: "Google authentication failed.")
+            }
+        }
     }
 
-    fun requestStudentPasswordReset(collegeId: String, onResult: (Boolean, String) -> Unit) {
+    fun signUpStaffWithGoogle(
+        context: android.content.Context,
+        expectedRole: com.example.data.auth.CampusRole,
+        serverClientId: String? = null,
+        departmentId: String? = null,
+        departmentName: String? = null,
+        onResult: (Boolean, String, String) -> Unit
+    ) {
+        signInStaffWithGoogle(
+            context = context,
+            expectedRole = expectedRole,
+            isSignUp = true,
+            serverClientId = serverClientId,
+            departmentId = departmentId,
+            departmentName = departmentName,
+            onResult = onResult
+        )
+    }
+
+    fun requestStudentPasswordReset(identifier: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
-            val res = authManager.requestStudentPasswordReset(collegeId)
+            val res = authManager.requestStudentPasswordReset(identifier)
             if (res.isSuccess) {
                 onResult(true, res.getOrNull() ?: "Password reset instructions dispatched.")
             } else {
@@ -361,6 +431,18 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
                 onResult(false, res.exceptionOrNull()?.message ?: "Failed to send password reset email.")
             }
         }
+    }
+
+    fun signOut(context: android.content.Context? = null, onComplete: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            authManager.signOut(context)
+            repository.logout()
+            onComplete?.invoke()
+        }
+    }
+
+    suspend fun verifySecurityClaims(requiredRoles: List<String>): com.example.data.auth.RoleVerificationResult {
+        return authManager.verifyFirestoreRoleClaims(requiredRoles)
     }
 
     // Multi-Department Faculty Management
@@ -431,19 +513,16 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
 
     fun registerTeacher(
         fullName: String,
-        officialEmail: String,
-        facultyId: String,
+        personalEmail: String,
         mobileNumber: String,
         password: String,
         confirmPassword: String,
-        departments: List<String>,
-        subjects: String,
+        department: String = "Computer Science",
         onResult: (Boolean, String) -> Unit
     ) {
         viewModelScope.launch {
             val res = authManager.registerTeacher(
-                fullName, officialEmail, facultyId, mobileNumber, password, confirmPassword,
-                departments, subjects
+                fullName, personalEmail, mobileNumber, password, confirmPassword, department
             )
             if (res.isSuccess) {
                 onResult(true, res.getOrNull() ?: "Faculty account created successfully.")
@@ -453,26 +532,52 @@ class CampusViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun registerPrincipal(
+    fun registerHod(
         fullName: String,
-        officialEmail: String,
-        principalId: String,
+        personalEmail: String,
         mobileNumber: String,
         password: String,
         confirmPassword: String,
-        securityPasscode: String,
+        departmentId: String,
+        departmentName: String,
         onResult: (Boolean, String) -> Unit
     ) {
         viewModelScope.launch {
-            val res = authManager.registerPrincipal(
-                fullName, officialEmail, principalId, mobileNumber, password, confirmPassword, securityPasscode
+            val res = authManager.registerHod(
+                fullName = fullName,
+                personalEmail = personalEmail,
+                mobileNumber = mobileNumber,
+                password = password,
+                confirmPassword = confirmPassword,
+                departmentId = departmentId,
+                departmentName = departmentName
             )
             if (res.isSuccess) {
-                onResult(true, res.getOrNull() ?: "Principal account registered successfully.")
+                onResult(true, res.getOrNull() ?: "HOD account registered successfully.")
             } else {
-                onResult(false, res.exceptionOrNull()?.message ?: "Failed to register Principal account.")
+                onResult(false, res.exceptionOrNull()?.message ?: "Failed to register HOD account.")
             }
         }
+    }
+
+    fun registerPrincipal(
+        fullName: String,
+        personalEmail: String,
+        mobileNumber: String,
+        password: String,
+        confirmPassword: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        registerHod(
+            fullName = fullName,
+            personalEmail = personalEmail,
+            mobileNumber = mobileNumber,
+            password = password,
+            confirmPassword = confirmPassword,
+            departmentId = "dept_comp",
+            departmentName = "Computer Engineering",
+            onResult = onResult
+        )
     }
 
     fun logout(context: android.content.Context? = null) {

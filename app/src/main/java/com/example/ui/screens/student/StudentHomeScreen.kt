@@ -1759,7 +1759,7 @@ fun StudentProfileEventsView(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "College ID: ${currentUser?.collegeId} • @${currentUser?.username}",
+                            text = "Student ID: ${currentUser?.collegeId} • @${currentUser?.username}",
                             style = MaterialTheme.typography.bodySmall,
                             color = PrimaryIndigo
                         )

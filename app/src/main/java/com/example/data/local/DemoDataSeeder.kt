@@ -5,34 +5,103 @@ import com.example.data.model.*
 object DemoDataSeeder {
 
     suspend fun seedDatabase(dao: CampusDao) {
-        // 1. Principal
-        val principalUser = UserEntity(
-            id = "user_principal",
-            email = "principal@mycampus.edu",
-            collegeId = "BD25PR001",
-            passwordHash = "admin123",
-            role = "principal",
-            fullName = "Dr. Alok Verma",
-            username = "principal_alok",
-            avatarUrl = "",
-            status = "active"
+        // 0. Seed Official College Departments
+        val departments = listOf(
+            DepartmentEntity("dept_comp", "COMP", "Computer Engineering", "Department of Computer Engineering & Software Systems"),
+            DepartmentEntity("dept_it", "IT", "Information Technology", "Department of Information Technology & Network Systems"),
+            DepartmentEntity("dept_aids", "AI-DS", "Artificial Intelligence & Data Science", "Department of AI, Machine Learning & Analytics"),
+            DepartmentEntity("dept_mech", "MECH", "Mechanical Engineering", "Department of Mechanical & Automation Engineering"),
+            DepartmentEntity("dept_civil", "CIVIL", "Civil Engineering", "Department of Civil & Structural Engineering"),
+            DepartmentEntity("dept_elec", "ELEC", "Electrical Engineering", "Department of Electrical & Power Systems"),
+            DepartmentEntity("dept_extc", "EXTC", "Electronics Engineering", "Department of Electronics & Telecommunication"),
+            DepartmentEntity("dept_math", "MATH", "Applied Mathematics & Sciences", "Department of Applied Mathematics & Basic Sciences")
         )
-        dao.insertUser(principalUser)
+        dao.insertDepartments(departments)
+
+        // 1. HODs (Head of Department)
+        val hodUsers = listOf(
+            UserEntity(
+                id = "user_hod_comp",
+                email = "hod.comp@mycampus.edu",
+                collegeId = "BD25HOD001",
+                passwordHash = "admin123",
+                role = "hod",
+                fullName = "Dr. Alok Verma",
+                username = "hod_comp",
+                avatarUrl = "",
+                phoneNumber = "+91 98765 43210",
+                departmentId = "dept_comp",
+                departmentName = "Computer Engineering",
+                status = "active"
+            ),
+            UserEntity(
+                id = "user_hod_mech",
+                email = "hod.mech@mycampus.edu",
+                collegeId = "BD25HOD002",
+                passwordHash = "admin123",
+                role = "hod",
+                fullName = "Dr. Rajesh Kulkarni",
+                username = "hod_mech",
+                avatarUrl = "",
+                phoneNumber = "+91 98765 43211",
+                departmentId = "dept_mech",
+                departmentName = "Mechanical Engineering",
+                status = "active"
+            ),
+            // Legacy / alternate login support for existing credentials
+            UserEntity(
+                id = "user_principal",
+                email = "principal@mycampus.edu",
+                collegeId = "BD25PR001",
+                passwordHash = "admin123",
+                role = "hod",
+                fullName = "Dr. Alok Verma",
+                username = "principal_alok",
+                avatarUrl = "",
+                phoneNumber = "+91 98765 43210",
+                departmentId = "dept_comp",
+                departmentName = "Computer Engineering",
+                status = "active"
+            )
+        )
+        hodUsers.forEach { dao.insertUser(it) }
+
+        val hodRecords = listOf(
+            HodEntity(
+                id = "hod_comp_record",
+                userId = "user_hod_comp",
+                employeeId = "BD25HOD001",
+                departmentId = "dept_comp",
+                departmentName = "Computer Engineering",
+                designation = "Head of Department (HOD) - Computer Engineering",
+                qualification = "Ph.D. in Computer Science (IIT Bombay)"
+            ),
+            HodEntity(
+                id = "hod_mech_record",
+                userId = "user_hod_mech",
+                employeeId = "BD25HOD002",
+                departmentId = "dept_mech",
+                departmentName = "Mechanical Engineering",
+                designation = "Head of Department (HOD) - Mechanical Engineering",
+                qualification = "Ph.D. in Thermal Engineering"
+            )
+        )
+        hodRecords.forEach { dao.insertHod(it) }
 
         // 2. Teachers
         val teacherUsers = listOf(
-            UserEntity("user_tch_rahul", "rahul.sharma@mycampus.edu", "BD25TC001", "teacher123", "teacher", "Prof. Rahul Sharma", "rahul_dbms", status = "active"),
-            UserEntity("user_tch_priya", "priya.nair@mycampus.edu", "BD25TC002", "teacher123", "teacher", "Prof. Priya Nair", "priya_java", status = "active"),
-            UserEntity("user_tch_vikram", "vikram.malhotra@mycampus.edu", "BD25TC003", "teacher123", "teacher", "Prof. Vikram Malhotra", "vikram_ds", status = "active"),
-            UserEntity("user_tch_sunita", "sunita.rao@mycampus.edu", "BD25TC004", "teacher123", "teacher", "Prof. Sunita Rao", "sunita_math", status = "active")
+            UserEntity("user_tch_rahul", "rahul.sharma@mycampus.edu", "BD25TC001", "teacher123", "teacher", "Prof. Rahul Sharma", "rahul_dbms", departmentId = "dept_comp", departmentName = "Computer Engineering", status = "active"),
+            UserEntity("user_tch_priya", "priya.nair@mycampus.edu", "BD25TC002", "teacher123", "teacher", "Prof. Priya Nair", "priya_java", departmentId = "dept_comp", departmentName = "Computer Engineering", status = "active"),
+            UserEntity("user_tch_vikram", "vikram.malhotra@mycampus.edu", "BD25TC003", "teacher123", "teacher", "Prof. Vikram Malhotra", "vikram_ds", departmentId = "dept_it", departmentName = "Information Technology", status = "active"),
+            UserEntity("user_tch_sunita", "sunita.rao@mycampus.edu", "BD25TC004", "teacher123", "teacher", "Prof. Sunita Rao", "sunita_math", departmentId = "dept_math", departmentName = "Applied Mathematics & Sciences", status = "active")
         )
         teacherUsers.forEach { dao.insertUser(it) }
 
         val teachers = listOf(
-            TeacherEntity("tch_rahul", "user_tch_rahul", "BD25TC001", "Computer Applications", "Head of Dept & Associate Professor", "Ph.D. in Database Systems"),
-            TeacherEntity("tch_priya", "user_tch_priya", "BD25TC002", "Computer Applications", "Assistant Professor", "M.Tech in Software Engineering"),
+            TeacherEntity("tch_rahul", "user_tch_rahul", "BD25TC001", "Computer Engineering", "Associate Professor", "Ph.D. in Database Systems"),
+            TeacherEntity("tch_priya", "user_tch_priya", "BD25TC002", "Computer Engineering", "Assistant Professor", "M.Tech in Software Engineering"),
             TeacherEntity("tch_vikram", "user_tch_vikram", "BD25TC003", "Information Technology", "Assistant Professor", "M.Tech in Algorithms"),
-            TeacherEntity("tch_sunita", "user_tch_sunita", "BD25TC004", "Mathematics", "Senior Professor", "Ph.D. in Applied Mathematics")
+            TeacherEntity("tch_sunita", "user_tch_sunita", "BD25TC004", "Applied Mathematics & Sciences", "Senior Professor", "Ph.D. in Applied Mathematics")
         )
         teachers.forEach { dao.insertTeacher(it) }
 
@@ -322,28 +391,30 @@ object DemoDataSeeder {
         val notices = listOf(
             NoticeEntity(
                 id = "not_1",
-                title = "TechNova 2026 — Annual Tech Symposium",
-                description = "Registrations are now open for the college's flagship tech fest including 24-hr Hackathon, Web3 sprint, and Robotics arena.",
+                title = "TechNova 2026 — Annual Department Tech Symposium",
+                description = "Registrations are now open for the department's flagship tech fest including 24-hr Hackathon, Web3 sprint, and AI arena.",
                 priority = "High",
                 targetRole = "All",
                 targetClass = "All",
                 targetSection = "All",
-                authorId = "user_principal",
-                authorName = "Dr. Alok Verma (Principal)",
-                authorRole = "principal",
+                authorId = "user_hod_comp",
+                authorName = "Dr. Alok Verma (HOD)",
+                authorRole = "hod",
+                departmentId = "dept_comp",
                 date = "2026-08-28"
             ),
             NoticeEntity(
                 id = "not_2",
                 title = "Mid-Term Examination Schedule Released",
-                description = "All students of BCA and B.Tech are hereby notified that mid-term examinations commence from Sept 15th, 2026. Hall tickets will be issued next week.",
+                description = "All students of Computer and IT Engineering are hereby notified that mid-term examinations commence from Sept 15th, 2026. Hall tickets will be issued next week.",
                 priority = "Urgent",
                 targetRole = "Students",
                 targetClass = "All",
                 targetSection = "All",
-                authorId = "user_principal",
-                authorName = "Dr. Alok Verma (Principal)",
-                authorRole = "principal",
+                authorId = "user_hod_comp",
+                authorName = "Dr. Alok Verma (HOD)",
+                authorRole = "hod",
+                departmentId = "dept_comp",
                 date = "2026-08-27"
             ),
             NoticeEntity(
@@ -357,6 +428,7 @@ object DemoDataSeeder {
                 authorId = "tch_rahul",
                 authorName = "Prof. Rahul Sharma",
                 authorRole = "teacher",
+                departmentId = "dept_comp",
                 date = "2026-08-29"
             )
         )

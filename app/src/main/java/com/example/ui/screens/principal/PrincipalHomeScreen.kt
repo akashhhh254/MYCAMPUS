@@ -63,12 +63,12 @@ fun PrincipalHomeScreen(
                 title = {
                     Column {
                         Text(
-                            text = "MyCampus • Principal Portal",
+                            text = "MyCampus • HOD Portal",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = currentUser?.fullName ?: "Dr. Alok Verma (Principal)",
+                            text = currentUser?.fullName?.let { "$it (HOD)" } ?: "Head of Department (HOD)",
                             style = MaterialTheme.typography.bodySmall,
                             color = PrimaryIndigoLight
                         )

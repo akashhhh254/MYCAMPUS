@@ -13,13 +13,39 @@ data class UserEntity(
     val email: String,
     val collegeId: String,
     val passwordHash: String,
-    val role: String, // "principal", "teacher", "student"
+    val role: String, // "hod", "teacher", "student"
     val fullName: String,
     val username: String,
     val avatarUrl: String = "",
+    val phoneNumber: String = "",
+    val departmentId: String = "",
+    val departmentName: String = "",
     val isActive: Boolean = true,
     val status: String = "active", // "active", "pending", "suspended", "disabled"
     val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "departments")
+data class DepartmentEntity(
+    @PrimaryKey val id: String,
+    val code: String,
+    val name: String,
+    val description: String = ""
+)
+
+@Entity(
+    tableName = "hods",
+    indices = [Index(value = ["userId"], unique = true), Index(value = ["employeeId"], unique = true), Index(value = ["departmentId"])]
+)
+data class HodEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val employeeId: String,
+    val departmentId: String,
+    val departmentName: String,
+    val designation: String = "Head of Department (HOD)",
+    val qualification: String = "Ph.D. / Senior Professor",
+    val isDeactivated: Boolean = false
 )
 
 @Entity(
@@ -220,7 +246,8 @@ data class NoticeEntity(
     val targetSection: String, // "All" or "A"
     val authorId: String,
     val authorName: String,
-    val authorRole: String,  // "principal", "teacher"
+    val authorRole: String,  // "hod", "teacher"
+    val departmentId: String = "All",
     val attachment: String = "",
     val date: String,
     val createdAt: Long = System.currentTimeMillis()

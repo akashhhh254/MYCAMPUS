@@ -1,6 +1,7 @@
 package com.example.ui.screens.auth
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.data.auth.CampusRole
 import com.example.ui.CampusViewModel
 import com.example.ui.components.RoleBadge
@@ -46,6 +49,7 @@ enum class AuthScreenMode {
     ROLE_SELECTION,
     STUDENT_LOGIN,
     TEACHER_LOGIN,
+    HOD_LOGIN,
     PRINCIPAL_LOGIN
 }
 
@@ -75,7 +79,7 @@ fun LoginScreen(
                 RoleSelectionView(
                     onSelectRole = { selectedRole ->
                         screenMode = when (selectedRole) {
-                            CampusRole.PRINCIPAL -> AuthScreenMode.PRINCIPAL_LOGIN
+                            CampusRole.HOD, CampusRole.PRINCIPAL -> AuthScreenMode.HOD_LOGIN
                             CampusRole.TEACHER -> AuthScreenMode.TEACHER_LOGIN
                             CampusRole.STUDENT -> AuthScreenMode.STUDENT_LOGIN
                         }
@@ -96,8 +100,8 @@ fun LoginScreen(
                     onLoginSuccess = onLoginSuccess
                 )
             }
-            AuthScreenMode.PRINCIPAL_LOGIN -> {
-                PrincipalLoginView(
+            AuthScreenMode.HOD_LOGIN, AuthScreenMode.PRINCIPAL_LOGIN -> {
+                HodLoginView(
                     viewModel = viewModel,
                     onBack = { screenMode = AuthScreenMode.ROLE_SELECTION },
                     onLoginSuccess = onLoginSuccess
@@ -171,15 +175,15 @@ fun RoleSelectionView(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // OPTION 1: Principal
+                // OPTION 1: HOD (Head of Department)
                 RoleSelectionCard(
-                    title = "Principal",
-                    subtitle = "Manage your college and departments.",
-                    badgeText = "ADMINISTRATOR",
+                    title = "HOD",
+                    subtitle = "Head of Department & academic administrator.",
+                    badgeText = "HOD / ADMIN",
                     accentColor = Color(0xFF7C3AED),
                     icon = Icons.Default.AdminPanelSettings,
                     testTag = "continue_as_principal_btn",
-                    onClick = { onSelectRole(CampusRole.PRINCIPAL) }
+                    onClick = { onSelectRole(CampusRole.HOD) }
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -335,13 +339,12 @@ fun StudentLoginView(
     var selectedAuthTab by remember { mutableIntStateOf(0) } // 0: Sign In, 1: Create Account
 
     // Sign In State
-    var collegeId by remember { mutableStateOf("") }
+    var studentCollegeId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
-    var isGoogleLoading by remember { mutableStateOf(false) }
     var showForgotPasswordDialog by remember { mutableStateOf(false) }
 
     // Register State
@@ -542,27 +545,27 @@ fun StudentLoginView(
                     if (selectedAuthTab == 0) {
                         // ================= SIGN IN TAB =================
                         OutlinedTextField(
-                            value = collegeId,
+                            value = studentCollegeId,
                             onValueChange = {
-                                collegeId = it.uppercase()
+                                studentCollegeId = it.trim().uppercase()
                                 errorMessage = null
                             },
-                            label = { Text("College ID") },
-                            placeholder = { Text("e.g. BD25BE016") },
+                            label = { Text("College ID *") },
+                            placeholder = { Text("e.g. BD25BE016 or your College ID") },
                             supportingText = {
-                                Text("Fixed 9-character student roll format (e.g. BD25BE016)")
+                                Text("Sign in using your unique assigned College ID")
                             },
                             leadingIcon = {
                                 Icon(Icons.Outlined.Badge, contentDescription = null, tint = PrimaryIndigo)
                             },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text,
+                                keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Next
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("student_college_id_input"),
+                                .testTag("student_email_input"),
                             shape = RoundedCornerShape(12.dp)
                         )
 
@@ -622,8 +625,8 @@ fun StudentLoginView(
 
                         Button(
                             onClick = {
-                                if (collegeId.isBlank()) {
-                                    errorMessage = "Please enter your official College ID."
+                                if (studentCollegeId.isBlank()) {
+                                    errorMessage = "Please enter your College ID."
                                     return@Button
                                 }
                                 if (password.isBlank()) {
@@ -633,7 +636,7 @@ fun StudentLoginView(
                                 focusManager.clearFocus()
                                 isLoading = true
                                 errorMessage = null
-                                viewModel.loginStudent(collegeId, password) { success, msg ->
+                                viewModel.loginStudent(studentCollegeId, password) { success, msg ->
                                     isLoading = false
                                     if (success) {
                                         onLoginSuccess("student")
@@ -664,51 +667,6 @@ fun StudentLoginView(
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            HorizontalDivider(modifier = Modifier.weight(1f))
-                            Text(
-                                text = "  or  ",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            HorizontalDivider(modifier = Modifier.weight(1f))
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        OutlinedButton(
-                            onClick = {
-                                isGoogleLoading = true
-                                errorMessage = null
-                                viewModel.signInWithGoogle(context, expectedRole = CampusRole.STUDENT) { success, role, msg ->
-                                    isGoogleLoading = false
-                                    if (success) {
-                                        onLoginSuccess(role)
-                                    } else {
-                                        errorMessage = msg
-                                    }
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .testTag("student_google_btn"),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (isGoogleLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryIndigo)
-                            } else {
-                                Icon(Icons.Default.AccountCircle, contentDescription = null, tint = PrimaryIndigo, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("Continue with Google", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
                     } else {
                         // ================= CREATE ACCOUNT (REGISTRATION) TAB =================
                         OutlinedTextField(
@@ -729,7 +687,6 @@ fun StudentLoginView(
                             onValueChange = { regCollegeId = it.uppercase(); errorMessage = null },
                             label = { Text("College ID * (Unique)") },
                             placeholder = { Text("e.g. BD25BE016") },
-                            supportingText = { Text("9-character institutional format (e.g. BD25BE016)") },
                             leadingIcon = { Icon(Icons.Outlined.Badge, contentDescription = null, tint = PrimaryIndigo) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -741,8 +698,8 @@ fun StudentLoginView(
                         OutlinedTextField(
                             value = regEmail,
                             onValueChange = { regEmail = it; errorMessage = null },
-                            label = { Text("Email Address *") },
-                            placeholder = { Text("e.g. student@college.edu") },
+                            label = { Text("Email Address * (For Account Recovery)") },
+                            placeholder = { Text("e.g. yourname@gmail.com") },
                             leadingIcon = { Icon(Icons.Outlined.Email, contentDescription = null, tint = PrimaryIndigo) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -811,7 +768,7 @@ fun StudentLoginView(
                                     value = regYearSem,
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Year / Sem *") },
+                                    label = { Text("Semester / Year *") },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearDropdownExpanded) },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -909,7 +866,7 @@ fun StudentLoginView(
                         Button(
                             onClick = {
                                 if (regFullName.isBlank() || regCollegeId.isBlank() || regEmail.isBlank() || regPassword.isBlank()) {
-                                    errorMessage = "Please fill in all mandatory fields."
+                                    errorMessage = "Please fill in all mandatory fields (Name, College ID, Email, Password)."
                                     return@Button
                                 }
                                 if (regPassword != regConfirmPassword) {
@@ -933,8 +890,8 @@ fun StudentLoginView(
                                 ) { success, msg ->
                                     isRegistering = false
                                     if (success) {
-                                        successMessage = "Account created successfully. Please sign in with your College ID."
-                                        collegeId = regCollegeId
+                                        successMessage = "Student account created successfully! Please sign in with your College ID ($regCollegeId)."
+                                        studentCollegeId = regCollegeId
                                         selectedAuthTab = 0
                                     } else {
                                         errorMessage = msg
@@ -974,7 +931,7 @@ fun StudentLoginView(
 
     // Student Forgot Password Dialog
     if (showForgotPasswordDialog) {
-        var resetCollegeId by remember { mutableStateOf(collegeId) }
+        var resetIdentifier by remember { mutableStateOf(studentCollegeId) }
         var resetMessage by remember { mutableStateOf<String?>(null) }
         var isResetting by remember { mutableStateOf(false) }
 
@@ -984,15 +941,16 @@ fun StudentLoginView(
             text = {
                 Column {
                     Text(
-                        text = "Enter your College ID. A secure password reset link will be sent to the official recovery email on file with the college registry.",
+                        text = "Enter your registered Email Address or College ID. A recovery reset link will be sent to your student email.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = resetCollegeId,
-                        onValueChange = { resetCollegeId = it },
-                        label = { Text("College ID") },
-                        placeholder = { Text("e.g. BD25BE016") },
+                        value = resetIdentifier,
+                        onValueChange = { resetIdentifier = it },
+                        label = { Text("College ID or Registered Email") },
+                        placeholder = { Text("e.g. BD25BE016 or student@gmail.com") },
+                        leadingIcon = { Icon(Icons.Outlined.Badge, contentDescription = null, tint = PrimaryIndigo) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1010,9 +968,9 @@ fun StudentLoginView(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (resetCollegeId.isNotBlank()) {
+                        if (resetIdentifier.isNotBlank()) {
                             isResetting = true
-                            viewModel.requestStudentPasswordReset(resetCollegeId) { _, msg ->
+                            viewModel.requestStudentPasswordReset(resetIdentifier) { _, msg ->
                                 isResetting = false
                                 resetMessage = msg
                             }
@@ -1242,13 +1200,13 @@ fun TeacherLoginView(
                                 identifier = it
                                 errorMessage = null
                             },
-                            label = { Text("Faculty ID or College Email") },
-                            placeholder = { Text("e.g. BD25TC001 or rahul.sharma@mycampus.edu") },
+                            label = { Text("Personal Email Address") },
+                            placeholder = { Text("e.g. rahul.sharma@gmail.com") },
                             leadingIcon = {
-                                Icon(Icons.Outlined.Person, contentDescription = null, tint = SecondaryTeal)
+                                Icon(Icons.Outlined.Email, contentDescription = null, tint = SecondaryTeal)
                             },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("teacher_identifier_input"),
@@ -1312,7 +1270,7 @@ fun TeacherLoginView(
                         Button(
                             onClick = {
                                 if (identifier.isBlank() || password.isBlank()) {
-                                    errorMessage = "Please enter Faculty ID and password."
+                                    errorMessage = "Please enter your Email and password."
                                     return@Button
                                 }
                                 focusManager.clearFocus()
@@ -1365,17 +1323,19 @@ fun TeacherLoginView(
 
                         OutlinedButton(
                             onClick = {
+                                if (isGoogleLoading) return@OutlinedButton
                                 isGoogleLoading = true
                                 errorMessage = null
-                                viewModel.signInStaffWithGoogle(context, expectedRole = CampusRole.TEACHER) { success, role, msg ->
+                                viewModel.signInStaffWithGoogle(context, expectedRole = CampusRole.TEACHER, isSignUp = false) { success, role, msg ->
                                     isGoogleLoading = false
                                     if (success) {
                                         onLoginSuccess(role)
-                                    } else {
+                                    } else if (!msg.contains("cancelled", ignoreCase = true)) {
                                         errorMessage = msg
                                     }
                                 }
                             },
+                            enabled = !isLoading && !isGoogleLoading,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp)
@@ -1385,13 +1345,17 @@ fun TeacherLoginView(
                             if (isGoogleLoading) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = SecondaryTeal)
                             } else {
-                                Icon(Icons.Default.AccountCircle, contentDescription = null, tint = SecondaryTeal, modifier = Modifier.size(20.dp))
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_google_logo),
+                                    contentDescription = "Google",
+                                    modifier = Modifier.size(20.dp)
+                                )
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("Sign in with Google Workspace", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Continue with Google", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     } else {
-                        // CREATE ACCOUNT TAB
+                        // CREATE ACCOUNT TAB (No College ID / No Passcode required)
                         OutlinedTextField(
                             value = regFullName,
                             onValueChange = { regFullName = it; errorMessage = null },
@@ -1408,24 +1372,11 @@ fun TeacherLoginView(
                         OutlinedTextField(
                             value = regEmail,
                             onValueChange = { regEmail = it; errorMessage = null },
-                            label = { Text("Official College Email *") },
-                            placeholder = { Text("e.g. rajesh.sharma@college.edu") },
+                            label = { Text("Personal Email *") },
+                            placeholder = { Text("e.g. rajesh.sharma@gmail.com") },
                             leadingIcon = { Icon(Icons.Outlined.Email, contentDescription = null, tint = SecondaryTeal) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = regFacultyId,
-                            onValueChange = { regFacultyId = it.uppercase(); errorMessage = null },
-                            label = { Text("Faculty Employee ID *") },
-                            placeholder = { Text("e.g. BD25TC001") },
-                            leadingIcon = { Icon(Icons.Outlined.Badge, contentDescription = null, tint = SecondaryTeal) },
-                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -1440,54 +1391,6 @@ fun TeacherLoginView(
                             leadingIcon = { Icon(Icons.Outlined.Phone, contentDescription = null, tint = SecondaryTeal) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = "Department Assignment (Multi-Select):",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            availableDepts.forEach { dept ->
-                                val isSelected = selectedDepts.contains(dept)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        if (isSelected) {
-                                            if (selectedDepts.size > 1) selectedDepts.remove(dept)
-                                        } else {
-                                            selectedDepts.add(dept)
-                                        }
-                                    },
-                                    label = { Text(dept, fontSize = 12.sp) },
-                                    leadingIcon = if (isSelected) {
-                                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    } else null
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = regSubjects,
-                            onValueChange = { regSubjects = it; errorMessage = null },
-                            label = { Text("Assigned Subjects") },
-                            placeholder = { Text("e.g. Data Structures, OS, Algorithms") },
-                            leadingIcon = { Icon(Icons.Outlined.MenuBook, contentDescription = null, tint = SecondaryTeal) },
-                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -1532,8 +1435,8 @@ fun TeacherLoginView(
 
                         Button(
                             onClick = {
-                                if (regFullName.isBlank() || regEmail.isBlank() || regFacultyId.isBlank() || regPassword.isBlank()) {
-                                    errorMessage = "Please fill in all mandatory fields."
+                                if (regFullName.isBlank() || regEmail.isBlank() || regPassword.isBlank()) {
+                                    errorMessage = "Please fill in all mandatory fields (Name, Email, Password)."
                                     return@Button
                                 }
                                 if (regPassword != regConfirmPassword) {
@@ -1545,18 +1448,15 @@ fun TeacherLoginView(
                                 errorMessage = null
                                 viewModel.registerTeacher(
                                     fullName = regFullName,
-                                    officialEmail = regEmail,
-                                    facultyId = regFacultyId,
+                                    personalEmail = regEmail,
                                     mobileNumber = regMobile,
                                     password = regPassword,
-                                    confirmPassword = regConfirmPassword,
-                                    departments = selectedDepts.toList(),
-                                    subjects = regSubjects
+                                    confirmPassword = regConfirmPassword
                                 ) { success, msg ->
                                     isRegistering = false
                                     if (success) {
-                                        successMessage = "Faculty account created successfully. Please sign in."
-                                        identifier = regFacultyId
+                                        successMessage = "Faculty account created successfully! Please sign in with your email."
+                                        identifier = regEmail
                                         selectedAuthTab = 0
                                     } else {
                                         errorMessage = msg
@@ -1574,6 +1474,57 @@ fun TeacherLoginView(
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                             } else {
                                 Text("Create Faculty Account", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                            Text(
+                                text = "  or  ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                if (isGoogleLoading) return@OutlinedButton
+                                isGoogleLoading = true
+                                errorMessage = null
+                                viewModel.signUpStaffWithGoogle(context, expectedRole = CampusRole.TEACHER) { success, role, msg ->
+                                    isGoogleLoading = false
+                                    if (success) {
+                                        onLoginSuccess(role)
+                                    } else if (!msg.contains("cancelled", ignoreCase = true)) {
+                                        errorMessage = msg
+                                    }
+                                }
+                            },
+                            enabled = !isRegistering && !isGoogleLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("teacher_google_reg_btn"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (isGoogleLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = SecondaryTeal)
+                            } else {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_google_logo),
+                                    contentDescription = "Google",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Sign up with Google", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -1655,20 +1606,22 @@ fun TeacherLoginView(
 }
 
 // ==========================================
-// 4. PRINCIPAL & ADMIN AUTHENTICATION
+// 4. HOD (HEAD OF DEPARTMENT) & ADMIN AUTHENTICATION
 // ==========================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrincipalLoginView(
+fun HodLoginView(
     viewModel: CampusViewModel,
     onBack: () -> Unit,
     onLoginSuccess: (String) -> Unit
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
-    val principalColor = Color(0xFF7C3AED)
+    val hodColor = Color(0xFF7C3AED)
     var selectedAuthTab by remember { mutableIntStateOf(0) }
+
+    val allDepartments by viewModel.allDepartments.collectAsState()
 
     // Sign In State
     var identifier by remember { mutableStateOf("") }
@@ -1683,20 +1636,31 @@ fun PrincipalLoginView(
     // Register State
     var regFullName by remember { mutableStateOf("") }
     var regEmail by remember { mutableStateOf("") }
-    var regPrincipalId by remember { mutableStateOf("") }
     var regMobile by remember { mutableStateOf("") }
     var regPassword by remember { mutableStateOf("") }
     var regConfirmPassword by remember { mutableStateOf("") }
     var regPasswordVisible by remember { mutableStateOf(false) }
-    var regSecurityCode by remember { mutableStateOf("") }
     var isRegistering by remember { mutableStateOf(false) }
+
+    // Department selection
+    var selectedDeptId by remember { mutableStateOf("dept_comp") }
+    var selectedDeptName by remember { mutableStateOf("Computer Engineering") }
+    var deptDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Synchronize default if departments load
+    LaunchedEffect(allDepartments) {
+        if (allDepartments.isNotEmpty() && allDepartments.none { it.id == selectedDeptId }) {
+            selectedDeptId = allDepartments.first().id
+            selectedDeptName = allDepartments.first().name
+        }
+    }
 
     val scrollState = rememberScrollState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Principal & Admin Portal", fontWeight = FontWeight.Bold) },
+                title = { Text("HOD & Admin Portal", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(
                         onClick = onBack,
@@ -1724,13 +1688,13 @@ fun PrincipalLoginView(
                 modifier = Modifier
                     .size(60.dp)
                     .clip(CircleShape),
-                color = principalColor.copy(alpha = 0.12f)
+                color = hodColor.copy(alpha = 0.12f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.AdminPanelSettings,
                         contentDescription = null,
-                        tint = principalColor,
+                        tint = hodColor,
                         modifier = Modifier.size(30.dp)
                     )
                 }
@@ -1739,13 +1703,14 @@ fun PrincipalLoginView(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "Executive Administration",
+                text = "Department Leadership & Administration",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             )
 
             Text(
-                text = "Manage your college, academic departments, faculty, and institute governance",
+                text = "Manage your academic department, faculty, students, and curriculum",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -1850,13 +1815,13 @@ fun PrincipalLoginView(
                                 identifier = it
                                 errorMessage = null
                             },
-                            label = { Text("Principal ID or Official Email") },
-                            placeholder = { Text("e.g. BD25PR001 or principal@mycampus.edu") },
+                            label = { Text("HOD Email / ID") },
+                            placeholder = { Text("e.g. hod.comp@mycampus.edu or gmail") },
                             leadingIcon = {
-                                Icon(Icons.Outlined.Shield, contentDescription = null, tint = principalColor)
+                                Icon(Icons.Outlined.Email, contentDescription = null, tint = hodColor)
                             },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("principal_identifier_input"),
@@ -1873,7 +1838,7 @@ fun PrincipalLoginView(
                             },
                             label = { Text("Password") },
                             leadingIcon = {
-                                Icon(Icons.Outlined.Lock, contentDescription = null, tint = principalColor)
+                                Icon(Icons.Outlined.Lock, contentDescription = null, tint = hodColor)
                             },
                             trailingIcon = {
                                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -1909,7 +1874,7 @@ fun PrincipalLoginView(
                                 Text(
                                     text = "Forgot Password?",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = principalColor,
+                                    color = hodColor,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -1920,16 +1885,16 @@ fun PrincipalLoginView(
                         Button(
                             onClick = {
                                 if (identifier.isBlank() || password.isBlank()) {
-                                    errorMessage = "Please enter Principal credentials."
+                                    errorMessage = "Please enter your HOD Email and password."
                                     return@Button
                                 }
                                 focusManager.clearFocus()
                                 isLoading = true
                                 errorMessage = null
-                                viewModel.loginPrincipal(identifier, password) { success, msg ->
+                                viewModel.loginHod(identifier, password) { success, msg ->
                                     isLoading = false
                                     if (success) {
-                                        onLoginSuccess("principal")
+                                        onLoginSuccess("hod")
                                     } else {
                                         errorMessage = msg
                                     }
@@ -1940,13 +1905,13 @@ fun PrincipalLoginView(
                                 .height(50.dp)
                                 .testTag("principal_login_btn"),
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = principalColor)
+                            colors = ButtonDefaults.buttonColors(containerColor = hodColor)
                         ) {
                             if (isLoading) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                             } else {
                                 Text(
-                                    text = "Sign In as Principal",
+                                    text = "Sign In as HOD",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -1973,17 +1938,19 @@ fun PrincipalLoginView(
 
                         OutlinedButton(
                             onClick = {
+                                if (isGoogleLoading) return@OutlinedButton
                                 isGoogleLoading = true
                                 errorMessage = null
-                                viewModel.signInStaffWithGoogle(context, expectedRole = CampusRole.PRINCIPAL) { success, role, msg ->
+                                viewModel.signInStaffWithGoogle(context, expectedRole = CampusRole.HOD, isSignUp = false) { success, role, msg ->
                                     isGoogleLoading = false
                                     if (success) {
                                         onLoginSuccess(role)
-                                    } else {
+                                    } else if (!msg.contains("cancelled", ignoreCase = true)) {
                                         errorMessage = msg
                                     }
                                 }
                             },
+                            enabled = !isLoading && !isGoogleLoading,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp)
@@ -1991,21 +1958,25 @@ fun PrincipalLoginView(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             if (isGoogleLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = principalColor)
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = hodColor)
                             } else {
-                                Icon(Icons.Default.AccountCircle, contentDescription = null, tint = principalColor, modifier = Modifier.size(20.dp))
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_google_logo),
+                                    contentDescription = "Google",
+                                    modifier = Modifier.size(20.dp)
+                                )
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("Sign in with Google Workspace", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Continue with Google", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     } else {
-                        // CREATE ACCOUNT TAB
+                        // CREATE HOD ACCOUNT TAB
                         OutlinedTextField(
                             value = regFullName,
                             onValueChange = { regFullName = it; errorMessage = null },
                             label = { Text("Full Name *") },
-                            placeholder = { Text("e.g. Dr. Anand Deshmukh") },
-                            leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null, tint = principalColor) },
+                            placeholder = { Text("e.g. Prof. Dr. Rajesh Sharma") },
+                            leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null, tint = hodColor) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
@@ -2016,24 +1987,11 @@ fun PrincipalLoginView(
                         OutlinedTextField(
                             value = regEmail,
                             onValueChange = { regEmail = it; errorMessage = null },
-                            label = { Text("Official Principal Email *") },
-                            placeholder = { Text("e.g. principal@college.edu") },
-                            leadingIcon = { Icon(Icons.Outlined.Email, contentDescription = null, tint = principalColor) },
+                            label = { Text("Personal Email *") },
+                            placeholder = { Text("e.g. rajesh.sharma@gmail.com") },
+                            leadingIcon = { Icon(Icons.Outlined.Email, contentDescription = null, tint = hodColor) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = regPrincipalId,
-                            onValueChange = { regPrincipalId = it.uppercase(); errorMessage = null },
-                            label = { Text("Principal Executive ID *") },
-                            placeholder = { Text("e.g. BD25PR001") },
-                            leadingIcon = { Icon(Icons.Outlined.Badge, contentDescription = null, tint = principalColor) },
-                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -2045,7 +2003,7 @@ fun PrincipalLoginView(
                             onValueChange = { regMobile = it; errorMessage = null },
                             label = { Text("Mobile Number") },
                             placeholder = { Text("e.g. 9876543210") },
-                            leadingIcon = { Icon(Icons.Outlined.Phone, contentDescription = null, tint = principalColor) },
+                            leadingIcon = { Icon(Icons.Outlined.Phone, contentDescription = null, tint = hodColor) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth(),
@@ -2054,17 +2012,65 @@ fun PrincipalLoginView(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedTextField(
-                            value = regSecurityCode,
-                            onValueChange = { regSecurityCode = it; errorMessage = null },
-                            label = { Text("Institutional Passcode * (PRINCIPAL2026)") },
-                            placeholder = { Text("Enter authorized security passcode") },
-                            supportingText = { Text("Required to verify executive authority") },
-                            leadingIcon = { Icon(Icons.Outlined.Security, contentDescription = null, tint = principalColor) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                        // Department Dropdown (Mandatory!)
+                        ExposedDropdownMenuBox(
+                            expanded = deptDropdownExpanded,
+                            onExpandedChange = { deptDropdownExpanded = !deptDropdownExpanded }
+                        ) {
+                            OutlinedTextField(
+                                value = selectedDeptName,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Select Department *") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = deptDropdownExpanded) },
+                                leadingIcon = { Icon(Icons.Outlined.Domain, contentDescription = null, tint = hodColor) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = deptDropdownExpanded,
+                                onDismissRequest = { deptDropdownExpanded = false }
+                            ) {
+                                if (allDepartments.isNotEmpty()) {
+                                    allDepartments.forEach { dept ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(dept.name, fontWeight = FontWeight.Bold)
+                                                    Text(dept.code, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            },
+                                            onClick = {
+                                                selectedDeptId = dept.id
+                                                selectedDeptName = dept.name
+                                                deptDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    listOf(
+                                        "dept_comp" to "Computer Engineering",
+                                        "dept_it" to "Information Technology",
+                                        "dept_mech" to "Mechanical Engineering",
+                                        "dept_civil" to "Civil Engineering",
+                                        "dept_entc" to "Electronics & Telecommunication",
+                                        "dept_aids" to "Artificial Intelligence & Data Science"
+                                    ).forEach { (id, name) ->
+                                        DropdownMenuItem(
+                                            text = { Text(name) },
+                                            onClick = {
+                                                selectedDeptId = id
+                                                selectedDeptName = name
+                                                deptDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -2072,7 +2078,7 @@ fun PrincipalLoginView(
                             value = regPassword,
                             onValueChange = { regPassword = it; errorMessage = null },
                             label = { Text("Password * (Min 6 chars)") },
-                            leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = principalColor) },
+                            leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = hodColor) },
                             trailingIcon = {
                                 IconButton(onClick = { regPasswordVisible = !regPasswordVisible }) {
                                     Icon(
@@ -2094,7 +2100,7 @@ fun PrincipalLoginView(
                             value = regConfirmPassword,
                             onValueChange = { regConfirmPassword = it; errorMessage = null },
                             label = { Text("Confirm Password *") },
-                            leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = principalColor) },
+                            leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = hodColor) },
                             visualTransformation = if (regPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             singleLine = true,
@@ -2106,8 +2112,8 @@ fun PrincipalLoginView(
 
                         Button(
                             onClick = {
-                                if (regFullName.isBlank() || regEmail.isBlank() || regPrincipalId.isBlank() || regSecurityCode.isBlank() || regPassword.isBlank()) {
-                                    errorMessage = "Please fill in all mandatory fields."
+                                if (regFullName.isBlank() || regEmail.isBlank() || regPassword.isBlank()) {
+                                    errorMessage = "Please fill in all mandatory fields (Name, Email, Password, Department)."
                                     return@Button
                                 }
                                 if (regPassword != regConfirmPassword) {
@@ -2117,19 +2123,19 @@ fun PrincipalLoginView(
                                 focusManager.clearFocus()
                                 isRegistering = true
                                 errorMessage = null
-                                viewModel.registerPrincipal(
+                                viewModel.registerHod(
                                     fullName = regFullName,
-                                    officialEmail = regEmail,
-                                    principalId = regPrincipalId,
+                                    personalEmail = regEmail,
                                     mobileNumber = regMobile,
                                     password = regPassword,
                                     confirmPassword = regConfirmPassword,
-                                    securityPasscode = regSecurityCode
+                                    departmentId = selectedDeptId,
+                                    departmentName = selectedDeptName
                                 ) { success, msg ->
                                     isRegistering = false
                                     if (success) {
-                                        successMessage = "Principal account registered successfully. Please sign in."
-                                        identifier = regPrincipalId
+                                        successMessage = "HOD account registered for $selectedDeptName! Please sign in with your email."
+                                        identifier = regEmail
                                         selectedAuthTab = 0
                                     } else {
                                         errorMessage = msg
@@ -2141,12 +2147,68 @@ fun PrincipalLoginView(
                                 .height(50.dp)
                                 .testTag("principal_register_btn"),
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = principalColor)
+                            colors = ButtonDefaults.buttonColors(containerColor = hodColor)
                         ) {
                             if (isRegistering) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                             } else {
-                                Text("Register Principal Account", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("Register HOD Account", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                            Text(
+                                text = "  or  ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                if (isGoogleLoading) return@OutlinedButton
+                                isGoogleLoading = true
+                                errorMessage = null
+                                viewModel.signUpStaffWithGoogle(
+                                    context = context,
+                                    expectedRole = CampusRole.HOD,
+                                    departmentId = selectedDeptId,
+                                    departmentName = selectedDeptName
+                                ) { success, role, msg ->
+                                    isGoogleLoading = false
+                                    if (success) {
+                                        onLoginSuccess(role)
+                                    } else if (!msg.contains("cancelled", ignoreCase = true)) {
+                                        errorMessage = msg
+                                    }
+                                }
+                            },
+                            enabled = !isRegistering && !isGoogleLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("principal_google_reg_btn"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (isGoogleLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = hodColor)
+                            } else {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_google_logo),
+                                    contentDescription = "Google",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Sign up with Google", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -2173,11 +2235,11 @@ fun PrincipalLoginView(
 
         AlertDialog(
             onDismissRequest = { showForgotPasswordDialog = false },
-            title = { Text("Principal Password Recovery") },
+            title = { Text("HOD Password Recovery") },
             text = {
                 Column {
                     Text(
-                        text = "Enter your official Principal email address. A password reset link will be dispatched immediately.",
+                        text = "Enter your official HOD email address. A password reset link will be dispatched immediately.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -2192,7 +2254,7 @@ fun PrincipalLoginView(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = resetMsg!!,
-                            color = principalColor,
+                            color = hodColor,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -2225,4 +2287,16 @@ fun PrincipalLoginView(
             }
         )
     }
+}
+
+/**
+ * Compatibility alias for PrincipalLoginView.
+ */
+@Composable
+fun PrincipalLoginView(
+    viewModel: CampusViewModel,
+    onBack: () -> Unit,
+    onLoginSuccess: (String) -> Unit
+) {
+    HodLoginView(viewModel = viewModel, onBack = onBack, onLoginSuccess = onLoginSuccess)
 }
